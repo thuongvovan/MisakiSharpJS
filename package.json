@@ -1,0 +1,42 @@
+{
+  "name": "misakisharp-wasm",
+  "version": "2.2.0",
+  "description": "High-performance browser WebAssembly wrapper for MisakiSharp G2P",
+  "type": "module",
+  "main": "./dist/misaki.js",
+  "module": "./dist/misaki.js",
+  "types": "./dist/misaki.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/misaki.d.ts",
+      "browser": "./dist/misaki.js",
+      "import": "./dist/misaki.js",
+      "default": "./dist/misaki.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "keywords": [
+    "g2p",
+    "phonemizer",
+    "webassembly",
+    "wasm",
+    "tts",
+    "kokoro"
+  ],
+  "author": "Lyrcaxis",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lyrcaxis/MisakiSharp.git",
+    "directory": "Web"
+  },
+  "bugs": "https://github.com/Lyrcaxis/MisakiSharp/issues",
+  "homepage": "https://github.com/Lyrcaxis/MisakiSharp#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
