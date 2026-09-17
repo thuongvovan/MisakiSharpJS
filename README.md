@@ -55,7 +55,9 @@ npm install /absolute/path/to/misakisharp-wasm-2.2.0.tgz
 ```js
 import { createMisaki } from "misakisharp-wasm";
 
-const misaki = await createMisaki();
+const misaki = await createMisaki({
+  preload: ["ja"],
+});
 
 const phonemes = await misaki.phonemize(
   "日本語は面白い！",
@@ -96,17 +98,52 @@ Creates and initializes a client.
 | `dataBaseUrl` | Release's versioned browser mirror | Alternate public directory containing compressed language files. Must allow CORS. |
 | `workerUrl` | `misaki.worker.js` below `assetBaseUrl` | Explicit worker module URL for custom hosting layouts. |
 | `onDataProgress` | `undefined` | Callback receiving aggregate byte and file progress while language data is downloaded. |
+| `preload` | `["en-us"]` | Languages loaded before `createMisaki` resolves. Pass `[]` to initialize only the runtime. |
 
 ### Client methods
 
 | Method | Description |
 |---|---|
 | `ready()` | Wait for initialization and return the same client. `createMisaki` already awaits this step. |
+| `loadLanguage(language?)` | Download and register one language's data. Repeated calls reuse the existing download/cache. |
 | `phonemize(text, language?)` | Convert one string to phonemes. |
 | `phonemizeBatch(texts, language?)` | Convert an array of strings using one language engine. |
 | `dispose()` | Terminate the worker and release client resources. |
 
 The package exports the `languages` constant and the `MisakiLanguage`, `MisakiOptions`, and `MisakiClient` TypeScript types.
+
+## Data loading lifecycle
+
+`createMisaki()` preloads `en-us` by default. Its promise resolves only after both the WASM runtime and English data are ready, so the first `phonemize` call performs no network download:
+
+```js
+const misaki = await createMisaki();
+const phonemes = await misaki.phonemize("Hello world.", "en-us");
+```
+
+Preload the languages required by the initial screen during initialization:
+
+```js
+const misaki = await createMisaki({
+  preload: ["en-us", "ja"],
+  onDataProgress: updateProgressBar,
+});
+```
+
+To initialize only the runtime, pass an empty list. The application can then download language data during an idle period:
+
+```js
+const misaki = await createMisaki({ preload: [] });
+
+requestIdleCallback(async () => {
+  await misaki.loadLanguage("ja");
+  console.log("Japanese data is ready");
+});
+```
+
+For browsers without `requestIdleCallback`, call `loadLanguage` from an application-specific idle/background task. Calls are idempotent, so requesting an already loaded language does not download it again.
+
+`phonemize` and `phonemizeBatch` never trigger a download. Calling either method for an unloaded language rejects with an error instructing the caller to use `loadLanguage` first.
 
 ## Download progress
 
@@ -165,7 +202,7 @@ For production:
 
 ## Language data
 
-Language models and dictionaries are published as GitHub Release assets, not files inside `MisakiSharp.wasm` or the npm package. A byte-identical copy is kept in the versioned `data-v2.2.0` branch because GitHub Release downloads currently do not include CORS headers required by browser `fetch`. A language's files are downloaded from that mirror on its first call and its initialized engine is then reused by that client.
+Language models and dictionaries are published as GitHub Release assets, not files inside `MisakiSharp.wasm` or the npm package. A byte-identical copy is kept in the versioned `data-v2.2.0` branch because GitHub Release downloads currently do not include CORS headers required by browser `fetch`. A language's files are downloaded from that mirror only through initialization preload or an explicit `loadLanguage` call, then reused by that client.
 
 This separation keeps the application WASM around 165 KiB and removes about 66 MiB from the installed package. Applications transfer only the data files required by the languages they use.
 
@@ -196,7 +233,7 @@ npm install
 npm start
 ```
 
-Open [http://localhost:4173](http://localhost:4173). The example has no web framework dependency and demonstrates asset mapping, language selection, lazy data loading, worker execution, and response timing.
+Open [http://localhost:4173](http://localhost:4173). The example has no web framework dependency. It preloads `en-us` during initialization, starts loading another language when the selection changes, and calls `phonemize` only after that data is ready.
 
 ## Package or publish this repository
 

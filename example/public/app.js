@@ -33,12 +33,15 @@ for (const code of languages) {
   language.append(option);
 }
 
-let clientPromise;
 let client;
+const languageLoads = new Map();
+const clientPromise = initializeClient();
+clientPromise.catch(() => {});
 
 language.addEventListener("change", () => {
   text.value = samples[language.value];
   text.focus();
+  loadLanguageData(language.value).catch(showError);
 });
 
 form.addEventListener("submit", async (event) => {
@@ -47,20 +50,18 @@ form.addEventListener("submit", async (event) => {
   if (!input) return;
 
   setBusy(true);
-  resetDataProgress(language.value);
   const started = performance.now();
   try {
     const misaki = await getClient();
-    setStatus("loading", `Đang tải data ${language.value}…`);
+    await loadLanguageData(language.value);
+    setStatus("loading", "Đang xử lý phoneme…");
     const phonemes = await misaki.phonemize(input, language.value);
     const elapsed = performance.now() - started;
     result.textContent = phonemes || "(Không có phoneme)";
     timing.textContent = `${elapsed.toFixed(1)} ms`;
     setStatus("ready", "Runtime sẵn sàng");
   } catch (error) {
-    result.textContent = error instanceof Error ? error.message : String(error);
-    timing.textContent = "Có lỗi";
-    setStatus("error", "Không thể xử lý");
+    showError(error);
   } finally {
     setBusy(false);
   }
@@ -73,25 +74,51 @@ document.addEventListener("keydown", (event) => {
 window.addEventListener("beforeunload", () => client?.dispose());
 
 async function getClient() {
-  if (!clientPromise) {
-    setStatus("loading", "Đang tải WASM…");
-    clientPromise = createMisaki({
-      assetBaseUrl: "/vendor/misakisharp/",
-      onDataProgress: updateDataProgress,
-    })
-      .then((value) => client = value)
-      .catch((error) => {
-        clientPromise = undefined;
-        throw error;
-      });
-  }
   return clientPromise;
 }
 
-function setBusy(busy) {
+async function initializeClient() {
+  setBusy(true, "Đang khởi tạo");
+  setStatus("loading", "Đang tải WASM…");
+  resetDataProgress("en-us");
+  try {
+    client = await createMisaki({
+      assetBaseUrl: "/vendor/misakisharp/",
+      preload: ["en-us"],
+      onDataProgress: updateDataProgress,
+    });
+    languageLoads.set("en-us", Promise.resolve(client));
+    setStatus("ready", "Runtime và data en-us sẵn sàng");
+    return client;
+  } catch (error) {
+    showError(error);
+    throw error;
+  } finally {
+    setBusy(false);
+  }
+}
+
+function loadLanguageData(code) {
+  let pending = languageLoads.get(code);
+  if (!pending) {
+    pending = getClient().then(async (misaki) => {
+      resetDataProgress(code);
+      await misaki.loadLanguage(code);
+      if (language.value === code) setStatus("ready", `Data ${code} sẵn sàng`);
+      return misaki;
+    }).catch((error) => {
+      languageLoads.delete(code);
+      throw error;
+    });
+    languageLoads.set(code, pending);
+  }
+  return pending;
+}
+
+function setBusy(busy, label = "Đang xử lý") {
   submit.disabled = busy;
   submit.classList.toggle("busy", busy);
-  submit.querySelector("span:first-child").textContent = busy ? "Đang xử lý" : "Phonemize";
+  submit.querySelector("span:first-child").textContent = busy ? label : "Phonemize";
 }
 
 function setStatus(state, label) {
@@ -126,7 +153,13 @@ function updateDataProgress(progress) {
     dataProgressTrack.setAttribute("aria-valuenow", String(percent));
     dataProgressBar.style.width = `${percent}%`;
   }
-  setStatus("loading", progress.done ? "Đang xử lý phoneme…" : `Đang tải data ${progress.language}…`);
+  setStatus(progress.done ? "ready" : "loading", progress.done ? `Data ${progress.language} sẵn sàng` : `Đang tải data ${progress.language}…`);
+}
+
+function showError(error) {
+  result.textContent = error instanceof Error ? error.message : String(error);
+  timing.textContent = "Có lỗi";
+  setStatus("error", "Không thể xử lý");
 }
 
 function formatBytes(bytes) {

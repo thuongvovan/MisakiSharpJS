@@ -20,7 +20,7 @@
         <div>
           <p class="eyebrow">G2P chạy hoàn toàn trong trình duyệt</p>
           <h1>MisakiSharp <span>WASM</span></h1>
-          <p class="intro">Chuyển văn bản thành phoneme bằng WebAssembly. Runtime chạy trong worker; dữ liệu chỉ tải khi bạn chọn ngôn ngữ.</p>
+          <p class="intro">Chuyển văn bản thành phoneme bằng WebAssembly. Runtime chạy trong worker; dữ liệu được tải trước khi xử lý.</p>
         </div>
         <div id="runtime-status" class="status" data-state="idle">
           <span class="status-dot"></span>
@@ -79,7 +79,7 @@
           <div class="notes">
             <div>
               <span class="note-index">A</span>
-              <p><strong>Lazy data</strong>Dữ liệu từng ngôn ngữ chỉ tải ở lần gọi đầu tiên.</p>
+              <p><strong>Chủ động tải</strong>Preload khi khởi tạo hoặc tải lúc ứng dụng rảnh.</p>
             </div>
             <div>
               <span class="note-index">B</span>

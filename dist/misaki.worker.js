@@ -3,6 +3,7 @@ import { ensureLanguageData } from "./misaki.data.js";
 let apiPromise;
 let runtimeBaseUrl;
 let dataBaseUrl;
+const loadedLanguages = new Set();
 
 function getApi(assetBaseUrl) {
   if (assetBaseUrl) {
@@ -45,12 +46,17 @@ self.addEventListener("message", async ({ data }) => {
       case "ready":
         value = undefined;
         break;
-      case "phonemize":
+      case "loadLanguage":
         await ensureLanguageData(api, data.args[0], dataBaseUrl, reportProgress);
+        loadedLanguages.add(data.args[0]);
+        value = undefined;
+        break;
+      case "phonemize":
+        requireLoaded(data.args[0]);
         value = unwrapManaged(api.Phonemize(data.args[0], data.args[1]));
         break;
       case "phonemizeBatch":
-        await ensureLanguageData(api, data.args[0], dataBaseUrl, reportProgress);
+        requireLoaded(data.args[0]);
         value = JSON.parse(unwrapManaged(api.PhonemizeBatch(data.args[0], JSON.stringify(data.args[1]))));
         break;
       default:
@@ -69,6 +75,12 @@ self.addEventListener("message", async ({ data }) => {
 
 function reportProgress(progress) {
   self.postMessage({ type: "data-progress", progress });
+}
+
+function requireLoaded(language) {
+  if (!loadedLanguages.has(language)) {
+    throw new Error(`Language '${language}' is not loaded. Call loadLanguage('${language}') before phonemize().`);
+  }
 }
 
 function describeError(error) {

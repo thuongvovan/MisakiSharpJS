@@ -23,6 +23,7 @@ export interface MisakiDataProgress {
 
 export interface MisakiClient {
   ready(): Promise<this>;
+  loadLanguage(language?: MisakiLanguage): Promise<this>;
   phonemize(text: string, language?: MisakiLanguage): Promise<string>;
   phonemizeBatch(texts: readonly string[], language?: MisakiLanguage): Promise<string[]>;
   dispose(): void;
@@ -39,6 +40,8 @@ export interface MisakiOptions {
   workerUrl?: string | URL;
   /** Receives aggregate progress while the selected language's data files are downloaded. */
   onDataProgress?: (progress: MisakiDataProgress) => void;
+  /** Languages loaded before createMisaki resolves. Defaults to ["en-us"]. Pass [] to defer all data loading. */
+  preload?: readonly MisakiLanguage[];
 }
 
 export const languages: readonly MisakiLanguage[];

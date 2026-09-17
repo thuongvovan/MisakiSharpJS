@@ -67,6 +67,7 @@ async function loadDirectApi(assetBaseUrl) {
 class DirectClient {
   #assetBaseUrl;
   #dataBaseUrl;
+  #loadedLanguages = new Set();
   #onDataProgress;
 
   constructor(assetBaseUrl, dataBaseUrl, onDataProgress) {
@@ -80,10 +81,18 @@ class DirectClient {
     return this;
   }
 
-  async phonemize(text, language = "en-us") {
+  async loadLanguage(language = "en-us") {
     const api = await loadDirectApi(this.#assetBaseUrl);
     const normalized = normalizeLanguage(language);
     await ensureLanguageData(api, normalized, this.#dataBaseUrl, this.#onDataProgress);
+    this.#loadedLanguages.add(normalized);
+    return this;
+  }
+
+  async phonemize(text, language = "en-us") {
+    const api = await loadDirectApi(this.#assetBaseUrl);
+    const normalized = normalizeLanguage(language);
+    this.#requireLoaded(normalized);
     return unwrapManaged(api.Phonemize(normalized, String(text)));
   }
 
@@ -93,9 +102,15 @@ class DirectClient {
     }
     const api = await loadDirectApi(this.#assetBaseUrl);
     const normalized = normalizeLanguage(language);
-    await ensureLanguageData(api, normalized, this.#dataBaseUrl, this.#onDataProgress);
+    this.#requireLoaded(normalized);
     const result = unwrapManaged(api.PhonemizeBatch(normalized, JSON.stringify(texts.map(String))));
     return JSON.parse(result);
+  }
+
+  #requireLoaded(language) {
+    if (!this.#loadedLanguages.has(language)) {
+      throw new Error(`Language '${language}' is not loaded. Call loadLanguage('${language}') before phonemize().`);
+    }
   }
 
   dispose() {
@@ -149,6 +164,11 @@ class WorkerClient {
     return this;
   }
 
+  async loadLanguage(language = "en-us") {
+    await this.#call("loadLanguage", normalizeLanguage(language));
+    return this;
+  }
+
   phonemize(text, language = "en-us") {
     return this.#call("phonemize", normalizeLanguage(language), String(text));
   }
@@ -179,6 +199,10 @@ export async function createMisaki(options = {}) {
   if (options.onDataProgress != null && typeof options.onDataProgress !== "function") {
     throw new TypeError("onDataProgress must be a function");
   }
+  const preload = options.preload ?? ["en-us"];
+  if (!Array.isArray(preload)) {
+    throw new TypeError("preload must be an array of language codes");
+  }
   const canUseWorker = typeof Worker !== "undefined";
   const assetBaseUrl = resolveAssetBaseUrl(options.assetBaseUrl);
   const dataBaseUrl = options.dataBaseUrl == null
@@ -190,5 +214,7 @@ export async function createMisaki(options = {}) {
   const client = useWorker && canUseWorker
     ? new WorkerClient(workerUrl, assetBaseUrl, dataBaseUrl, options.onDataProgress)
     : new DirectClient(assetBaseUrl, dataBaseUrl, options.onDataProgress);
-  return client.ready();
+  await client.ready();
+  await Promise.all(preload.map((language) => client.loadLanguage(language)));
+  return client;
 }
