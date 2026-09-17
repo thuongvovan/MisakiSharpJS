@@ -44,6 +44,16 @@
           <label class="textarea-label" for="text">Nhập câu cần chuyển đổi</label>
           <textarea id="text" rows="8" required spellcheck="false">Hello world. WebAssembly keeps the interface responsive.</textarea>
 
+          <div id="data-progress" class="data-progress" hidden>
+            <div class="progress-heading">
+              <span id="data-progress-label">Đang chuẩn bị data…</span>
+              <span id="data-progress-value">0%</span>
+            </div>
+            <div id="data-progress-track" class="progress-track" role="progressbar" aria-label="Tiến trình tải data" aria-valuemin="0" aria-valuemax="100">
+              <span id="data-progress-bar"></span>
+            </div>
+          </div>
+
           <div class="form-footer">
             <p>Nhấn <kbd>⌘</kbd><span>+</span><kbd>Enter</kbd> để chạy nhanh</p>
             <button id="submit" type="submit">

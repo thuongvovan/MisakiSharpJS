@@ -2,19 +2,41 @@
 
 Prebuilt browser distribution of [MisakiSharp](https://github.com/Lyrcaxis/MisakiSharp), a multilingual grapheme-to-phoneme engine for Kokoro TTS and other speech applications.
 
-This repository is a standalone JavaScript library. Applications that consume it do not need the .NET SDK, the C# source repository, or a server-side runtime. The npm package includes the JavaScript API, TypeScript declarations, Web Worker, and .NET WebAssembly runtime. Compressed language data is downloaded lazily from versioned GitHub Release assets.
+This repository is a standalone JavaScript library. Applications that consume it do not need the .NET SDK, the C# source repository, or a server-side runtime. The npm package includes the JavaScript API, TypeScript declarations, Web Worker, and .NET WebAssembly runtime. Compressed language data is published as GitHub Release assets and downloaded lazily from their versioned browser mirror.
 
 ## Features
 
 - Promise-based ES module API with TypeScript declarations.
 - Web Worker execution by default so G2P work does not block the browser UI.
 - WebAssembly AOT release build.
-- Lazy loading and caching of data per language from versioned GitHub Release assets.
+- Lazy loading and caching of versioned language data.
 - Single-call batch processing across the JavaScript/WASM boundary.
 - Separate asset and data URLs for static hosting or CDN deployment.
 - English, Japanese, Chinese, Spanish, French, Hindi, Italian, and Portuguese.
 
 ## Install
+
+Install directly from the GitHub repository. Pin a tag or commit for reproducible builds:
+
+```sh
+npm install github:thuongvovan/MisakiSharpJS#v2.2.0
+```
+
+Use the latest `main` branch during development:
+
+```sh
+npm install github:thuongvovan/MisakiSharpJS#main
+```
+
+The equivalent `package.json` dependency is:
+
+```json
+{
+  "dependencies": {
+    "misakisharp-wasm": "github:thuongvovan/MisakiSharpJS#main"
+  }
+}
+```
 
 Install this local checkout:
 
@@ -71,8 +93,9 @@ Creates and initializes a client.
 |---|---|---|
 | `worker` | `true` | Run the runtime in a Web Worker. Set to `false` only when main-thread execution is acceptable. |
 | `assetBaseUrl` | Directory containing `misaki.js` | Public directory containing `misaki.worker.js` and `_framework/`. |
-| `dataBaseUrl` | Package's versioned GitHub Release | Alternate public directory containing compressed language files. May be a CORS-enabled CDN URL. |
+| `dataBaseUrl` | Release's versioned browser mirror | Alternate public directory containing compressed language files. Must allow CORS. |
 | `workerUrl` | `misaki.worker.js` below `assetBaseUrl` | Explicit worker module URL for custom hosting layouts. |
+| `onDataProgress` | `undefined` | Callback receiving aggregate byte and file progress while language data is downloaded. |
 
 ### Client methods
 
@@ -84,6 +107,28 @@ Creates and initializes a client.
 | `dispose()` | Terminate the worker and release client resources. |
 
 The package exports the `languages` constant and the `MisakiLanguage`, `MisakiOptions`, and `MisakiClient` TypeScript types.
+
+## Download progress
+
+Provide `onDataProgress` to update a progress bar or status label. The same callback works in Web Worker and direct modes:
+
+```js
+const misaki = await createMisaki({
+  onDataProgress(progress) {
+    if (progress.percent !== null) {
+      console.log(`${Math.round(progress.percent * 100)}%`);
+    }
+
+    console.log(
+      progress.language,
+      `${progress.filesLoaded}/${progress.filesTotal} files`,
+      `${progress.loadedBytes}/${progress.totalBytes ?? "?"} bytes`,
+    );
+  },
+});
+```
+
+The built-in manifest contains the exact size of every versioned asset, so the default source reports determinate byte progress even when the data server omits `Content-Length`. `percent` and `totalBytes` may be `null` only for a future/custom manifest without known sizes. `done` becomes `true` after every required file has been registered with the WASM runtime. Cached language data reports completion immediately without downloading it again.
 
 ## Deploy
 
@@ -97,7 +142,7 @@ const misaki = await createMisaki({
 });
 ```
 
-Keep `misaki.worker.js`, `misaki.data.js`, and `_framework/` together under that URL. By default, language data comes from the `v2.2.0` GitHub Release. To use a mirror or CDN, point the client to it:
+Keep `misaki.worker.js`, `misaki.data.js`, and `_framework/` together under that URL. By default, language data comes from the `data-v2.2.0` browser-mirror branch. To use another mirror or CDN, point the client to it:
 
 ```js
 const misaki = await createMisaki({
@@ -120,17 +165,17 @@ For production:
 
 ## Language data
 
-Language models and dictionaries are GitHub Release assets, not files inside `MisakiSharp.wasm` or the npm package. A language's files are downloaded on its first call and its initialized engine is then reused by that client.
+Language models and dictionaries are published as GitHub Release assets, not files inside `MisakiSharp.wasm` or the npm package. A byte-identical copy is kept in the versioned `data-v2.2.0` branch because GitHub Release downloads currently do not include CORS headers required by browser `fetch`. A language's files are downloaded from that mirror on its first call and its initialized engine is then reused by that client.
 
 This separation keeps the application WASM around 165 KiB and removes about 66 MiB from the installed package. Applications transfer only the data files required by the languages they use.
 
-The default release URL is:
+The default browser URL is:
 
 ```text
-https://github.com/thuongvovan/MisakiSharpJS/releases/download/v2.2.0/
+https://raw.githubusercontent.com/thuongvovan/MisakiSharpJS/data-v2.2.0/
 ```
 
-Release filenames are part of the runtime contract and must not be changed. The release tag and the default URL in `dist/misaki.js` must be updated together when publishing a new package version.
+Release filenames are part of the runtime contract and must not be changed. The release tag, mirror branch, and default URL in `dist/misaki.js` must be updated together when publishing a new data version.
 
 ## Package contents
 

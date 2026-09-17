@@ -1,6 +1,6 @@
 # MisakiSharp WASM example
 
-Example tối giản sử dụng package `misakisharp-wasm` từ project cha. Runtime chạy trong Web Worker và dữ liệu ngôn ngữ chỉ được tải từ GitHub Release khi sử dụng lần đầu.
+Example tối giản sử dụng package `misakisharp-wasm` từ project cha. Runtime chạy trong Web Worker, dữ liệu ngôn ngữ chỉ được tải từ browser mirror của GitHub Release khi sử dụng lần đầu và tiến trình tải được hiển thị theo byte/file.
 
 ```sh
 npm install

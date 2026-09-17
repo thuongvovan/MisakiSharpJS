@@ -39,7 +39,7 @@ createServer((request, response) => {
 
     response.writeHead(200, {
       "Content-Type": mimeTypes[extname(file)] || "application/octet-stream",
-      "Cache-Control": isVendor ? "public, max-age=31536000, immutable" : "no-cache",
+      "Cache-Control": "no-cache",
     });
     if (request.method === "HEAD") response.end();
     else createReadStream(file).pipe(response);

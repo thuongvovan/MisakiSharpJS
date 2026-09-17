@@ -10,6 +10,17 @@ export type MisakiLanguage =
   | "it"
   | "pt-br";
 
+export interface MisakiDataProgress {
+  language: MisakiLanguage;
+  file: string | null;
+  loadedBytes: number;
+  totalBytes: number | null;
+  filesLoaded: number;
+  filesTotal: number;
+  percent: number | null;
+  done: boolean;
+}
+
 export interface MisakiClient {
   ready(): Promise<this>;
   phonemize(text: string, language?: MisakiLanguage): Promise<string>;
@@ -22,10 +33,12 @@ export interface MisakiOptions {
   worker?: boolean;
   /** Directory containing misaki.worker.js and _framework/. Defaults to the module directory. */
   assetBaseUrl?: string | URL;
-  /** Directory containing compressed language data. Defaults to the package's versioned GitHub Release. */
+  /** Directory containing compressed language data. Defaults to the release's versioned browser mirror. */
   dataBaseUrl?: string | URL;
   /** Override the worker module URL when assets are served from a custom location. */
   workerUrl?: string | URL;
+  /** Receives aggregate progress while the selected language's data files are downloaded. */
+  onDataProgress?: (progress: MisakiDataProgress) => void;
 }
 
 export const languages: readonly MisakiLanguage[];

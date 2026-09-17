@@ -46,11 +46,11 @@ self.addEventListener("message", async ({ data }) => {
         value = undefined;
         break;
       case "phonemize":
-        await ensureLanguageData(api, data.args[0], dataBaseUrl);
+        await ensureLanguageData(api, data.args[0], dataBaseUrl, reportProgress);
         value = unwrapManaged(api.Phonemize(data.args[0], data.args[1]));
         break;
       case "phonemizeBatch":
-        await ensureLanguageData(api, data.args[0], dataBaseUrl);
+        await ensureLanguageData(api, data.args[0], dataBaseUrl, reportProgress);
         value = JSON.parse(unwrapManaged(api.PhonemizeBatch(data.args[0], JSON.stringify(data.args[1]))));
         break;
       default:
@@ -66,6 +66,10 @@ self.addEventListener("message", async ({ data }) => {
     });
   }
 });
+
+function reportProgress(progress) {
+  self.postMessage({ type: "data-progress", progress });
+}
 
 function describeError(error) {
   if (error instanceof Error) return error.stack || error.message;

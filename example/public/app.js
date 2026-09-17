@@ -20,6 +20,11 @@ const result = document.querySelector("#result");
 const timing = document.querySelector("#timing");
 const submit = document.querySelector("#submit");
 const runtimeStatus = document.querySelector("#runtime-status");
+const dataProgress = document.querySelector("#data-progress");
+const dataProgressLabel = document.querySelector("#data-progress-label");
+const dataProgressValue = document.querySelector("#data-progress-value");
+const dataProgressTrack = document.querySelector("#data-progress-track");
+const dataProgressBar = document.querySelector("#data-progress-bar");
 
 for (const code of languages) {
   const option = document.createElement("option");
@@ -42,6 +47,7 @@ form.addEventListener("submit", async (event) => {
   if (!input) return;
 
   setBusy(true);
+  resetDataProgress(language.value);
   const started = performance.now();
   try {
     const misaki = await getClient();
@@ -69,7 +75,10 @@ window.addEventListener("beforeunload", () => client?.dispose());
 async function getClient() {
   if (!clientPromise) {
     setStatus("loading", "Đang tải WASM…");
-    clientPromise = createMisaki({ assetBaseUrl: "/vendor/misakisharp/" })
+    clientPromise = createMisaki({
+      assetBaseUrl: "/vendor/misakisharp/",
+      onDataProgress: updateDataProgress,
+    })
       .then((value) => client = value)
       .catch((error) => {
         clientPromise = undefined;
@@ -88,4 +97,40 @@ function setBusy(busy) {
 function setStatus(state, label) {
   runtimeStatus.dataset.state = state;
   runtimeStatus.querySelector("span:last-child").textContent = label;
+}
+
+function resetDataProgress(code) {
+  dataProgress.hidden = false;
+  dataProgressLabel.textContent = `Đang chuẩn bị data ${code}…`;
+  dataProgressValue.textContent = "0%";
+  dataProgressBar.style.width = "0%";
+  dataProgressTrack.classList.remove("indeterminate");
+  dataProgressTrack.setAttribute("aria-valuenow", "0");
+}
+
+function updateDataProgress(progress) {
+  dataProgress.hidden = false;
+  const percent = progress.percent === null ? null : Math.round(progress.percent * 100);
+  const fileStatus = `${progress.filesLoaded}/${progress.filesTotal} file`;
+  dataProgressLabel.textContent = progress.done
+    ? `Data ${progress.language} đã sẵn sàng · ${fileStatus}`
+    : `Đang tải data ${progress.language} · ${fileStatus}`;
+  dataProgressValue.textContent = progress.totalBytes === null
+    ? formatBytes(progress.loadedBytes)
+    : `${formatBytes(progress.loadedBytes)} / ${formatBytes(progress.totalBytes)} · ${percent}%`;
+  dataProgressTrack.classList.toggle("indeterminate", percent === null);
+  if (percent === null) {
+    dataProgressTrack.removeAttribute("aria-valuenow");
+    dataProgressBar.style.width = "32%";
+  } else {
+    dataProgressTrack.setAttribute("aria-valuenow", String(percent));
+    dataProgressBar.style.width = `${percent}%`;
+  }
+  setStatus("loading", progress.done ? "Đang xử lý phoneme…" : `Đang tải data ${progress.language}…`);
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 }

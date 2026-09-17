@@ -1,6 +1,6 @@
 import { ensureLanguageData } from "./misaki.data.js";
 
-const DEFAULT_DATA_BASE_URL = "https://github.com/thuongvovan/MisakiSharpJS/releases/download/v2.2.0/";
+const DEFAULT_DATA_BASE_URL = "https://raw.githubusercontent.com/thuongvovan/MisakiSharpJS/data-v2.2.0/";
 
 const SUPPORTED_LANGUAGES = new Set([
   "en-us",
@@ -67,10 +67,12 @@ async function loadDirectApi(assetBaseUrl) {
 class DirectClient {
   #assetBaseUrl;
   #dataBaseUrl;
+  #onDataProgress;
 
-  constructor(assetBaseUrl, dataBaseUrl) {
+  constructor(assetBaseUrl, dataBaseUrl, onDataProgress) {
     this.#assetBaseUrl = assetBaseUrl;
     this.#dataBaseUrl = dataBaseUrl;
+    this.#onDataProgress = onDataProgress;
   }
 
   async ready() {
@@ -81,7 +83,7 @@ class DirectClient {
   async phonemize(text, language = "en-us") {
     const api = await loadDirectApi(this.#assetBaseUrl);
     const normalized = normalizeLanguage(language);
-    await ensureLanguageData(api, normalized, this.#dataBaseUrl);
+    await ensureLanguageData(api, normalized, this.#dataBaseUrl, this.#onDataProgress);
     return unwrapManaged(api.Phonemize(normalized, String(text)));
   }
 
@@ -91,7 +93,7 @@ class DirectClient {
     }
     const api = await loadDirectApi(this.#assetBaseUrl);
     const normalized = normalizeLanguage(language);
-    await ensureLanguageData(api, normalized, this.#dataBaseUrl);
+    await ensureLanguageData(api, normalized, this.#dataBaseUrl, this.#onDataProgress);
     const result = unwrapManaged(api.PhonemizeBatch(normalized, JSON.stringify(texts.map(String))));
     return JSON.parse(result);
   }
@@ -108,9 +110,13 @@ class WorkerClient {
   #pending = new Map();
   #worker;
 
-  constructor(workerUrl, assetBaseUrl, dataBaseUrl) {
+  constructor(workerUrl, assetBaseUrl, dataBaseUrl, onDataProgress) {
     this.#worker = new Worker(workerUrl, { type: "module", name: "misaki-wasm" });
     this.#worker.addEventListener("message", ({ data }) => {
+      if (data.type === "data-progress") {
+        onDataProgress?.(data.progress);
+        return;
+      }
       const pending = this.#pending.get(data.id);
       if (!pending) return;
       this.#pending.delete(data.id);
@@ -170,6 +176,9 @@ class WorkerClient {
  */
 export async function createMisaki(options = {}) {
   const useWorker = options.worker ?? true;
+  if (options.onDataProgress != null && typeof options.onDataProgress !== "function") {
+    throw new TypeError("onDataProgress must be a function");
+  }
   const canUseWorker = typeof Worker !== "undefined";
   const assetBaseUrl = resolveAssetBaseUrl(options.assetBaseUrl);
   const dataBaseUrl = options.dataBaseUrl == null
@@ -179,7 +188,7 @@ export async function createMisaki(options = {}) {
     ? new URL("misaki.worker.js", assetBaseUrl)
     : new URL(String(options.workerUrl), import.meta.url);
   const client = useWorker && canUseWorker
-    ? new WorkerClient(workerUrl, assetBaseUrl, dataBaseUrl)
-    : new DirectClient(assetBaseUrl, dataBaseUrl);
+    ? new WorkerClient(workerUrl, assetBaseUrl, dataBaseUrl, options.onDataProgress)
+    : new DirectClient(assetBaseUrl, dataBaseUrl, options.onDataProgress);
   return client.ready();
 }
