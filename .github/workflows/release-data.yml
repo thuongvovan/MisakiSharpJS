@@ -11,20 +11,21 @@ permissions:
 jobs:
   release-data:
     runs-on: ubuntu-latest
+    env:
+      MISAKI_SOURCE_COMMIT: beb91a9f06ebe5e25e595b5a3c990ee616ad75e5
     steps:
-      - name: Check out MisakiSharp data
-        uses: actions/checkout@v4
-        with:
-          repository: Lyrcaxis/MisakiSharp
-          ref: beb91a9
-          path: misaki-source
+      - name: Download MisakiSharp data
+        run: |
+          mkdir -p "$RUNNER_TEMP/misaki-source"
+          curl -fsSL "https://github.com/Lyrcaxis/MisakiSharp/archive/${MISAKI_SOURCE_COMMIT}.tar.gz" \
+            | tar -xz --strip-components=1 -C "$RUNNER_TEMP/misaki-source"
 
       - name: Create release and upload language data
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
           gh release create "$GITHUB_REF_NAME"
-          misaki-source/data/*.gz
+          "$RUNNER_TEMP/misaki-source/data/"*.gz
           --repo "$GITHUB_REPOSITORY"
           --title "MisakiSharp WASM ${GITHUB_REF_NAME#v}"
           --notes "Browser runtime and lazy-loaded language data for MisakiSharp WASM ${GITHUB_REF_NAME#v}."
