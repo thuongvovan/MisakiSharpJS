@@ -1,0 +1,30 @@
+name: Release language data
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out MisakiSharp data
+        uses: actions/checkout@v4
+        with:
+          repository: Lyrcaxis/MisakiSharp
+          ref: beb91a9
+          path: misaki-source
+
+      - name: Create release and upload language data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          misaki-source/data/*.gz
+          --repo "$GITHUB_REPOSITORY"
+          --title "MisakiSharp WASM ${GITHUB_REF_NAME#v}"
+          --notes "Browser runtime and lazy-loaded language data for MisakiSharp WASM ${GITHUB_REF_NAME#v}."

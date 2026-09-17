@@ -157,7 +157,14 @@ Open [http://localhost:4173](http://localhost:4173). The example has no web fram
 
 ### Publish language data
 
-Create a release tag matching the package version and upload the compressed files from the C# source repository without renaming them:
+Pushing a version tag runs `.github/workflows/release-data.yml`, creates the matching release, and uploads the compressed data from the pinned C# source commit:
+
+```sh
+git tag v2.2.0
+git push origin v2.2.0
+```
+
+For a manual release, upload the compressed files from the C# source repository without renaming them:
 
 ```sh
 gh release create v2.2.0 /absolute/path/to/MisakiSharp/data/*.gz \
